@@ -17,10 +17,11 @@
   },
   "license": "MIT",
   "dependencies": {
-    "aws-sdk": "^2.713.0"
+    "aws-sdk": "^2.713.0",
+    "babel-plugin-source-map-support": "^2.1.3"
   },
   "devDependencies": {
-    "@stackcrafters/config-babel": "0.0.3"
+    "@stackcrafters/config-babel": "0.0.4"
   },
   "scripts": {
     "clean": "rimraf lib",
