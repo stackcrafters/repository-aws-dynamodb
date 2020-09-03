@@ -1,7 +1,7 @@
 {
   "name": "@stackcrafters/repository-aws-dynamodb",
   "description": "A package that provides a base model with access to AWS Dynamodb",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "main": "lib/index.js",
   "files": [
     "/lib",
