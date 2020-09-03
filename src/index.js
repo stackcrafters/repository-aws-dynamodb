@@ -1,7 +1,7 @@
 import AWS from 'aws-sdk';
 import { chunkArray } from './array';
 
-export const dynamodb = new AWS.DynamoDB.DocumentClient();
+export const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
 const createKey = (keys, { hashKey, rangeKey }) => ({
   [keys.hashKey]: hashKey,
