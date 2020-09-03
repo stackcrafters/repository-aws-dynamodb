@@ -1,5 +1,5 @@
 import AWS from 'aws-sdk';
-import { chunkArray } from './utils/array';
+import { chunkArray } from './array';
 
 export const dynamodb = new AWS.DynamoDB.DocumentClient();
 

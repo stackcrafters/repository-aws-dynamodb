@@ -38,8 +38,8 @@
   "scripts": {
     "clean": "rimraf lib",
     "lint": "eslint ./src",
-    "build": "npm run clean && npm run lint && babel ./src -d ./lib --source-maps",
-    "watch": "babel ./src -d ./lib --source-maps --watch",
+    "build": "npm run clean && npm run lint && babel ./src -d ./lib --source-maps --ignore '**/*.test.js'",
+    "watch": "babel ./src -d ./lib --source-maps --watch --ignore '**/*.test.js'",
     "test": "jest",
     "test:watch": "jest --watch",
     "prepublishOnly": "npm run build"
