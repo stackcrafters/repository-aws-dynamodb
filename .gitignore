@@ -1,0 +1,34 @@
+# Dependency directories
+node_modules
+.history
+# Webpack directory
+.webpack
+_warmup
+
+# Build directory
+.build
+
+lib 
+
+# intelij
+.idea
+
+# Serverless directories
+.serverless
+
+# dotenv environment variables files
+.env
+.env*
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OSX
+.DS_Store
+
+# Test coverage report
+coverage/

@@ -1,0 +1,46 @@
+{
+  "name": "@stackcrafters/repository-aws-dynamodb",
+  "description": "A package that provides a base model with access to AWS Dynamodb",
+  "version": "0.0.1",
+  "main": "build/index.js",
+  "files": [
+    "build/",
+    "package.json"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stackcrafters/repository-aws-dynamodb.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/",
+    "access": "restricted"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "aws-sdk": "^2.713.0"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.11.5",
+    "@babel/core": "^7.11.5",
+    "@babel/eslint-parser": "^7.11.5",
+    "@babel/plugin-proposal-class-properties": "^7.10.4",
+    "@babel/preset-env": "^7.11.5",
+    "babel-jest": "^26.3.0",
+    "eslint": "^7.8.1",
+    "eslint-config-prettier": "^6.11.0",
+    "eslint-plugin-import": "^2.22.0",
+    "eslint-plugin-prettier": "^3.1.4",
+    "jest": "^26.4.2",
+    "jest-cli": "^26.4.2",
+    "prettier": "^2.1.1",
+    "rimraf": "^3.0.2"
+  },
+  "scripts": {
+    "clean": "rimraf lib",
+    "lint": "eslint ./src",
+    "build": "npm run clean && npm run lint && babel ./src -d ./lib --source-maps",
+    "watch": "babel ./src -d ./lib --source-maps --watch",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  }
+}
