@@ -1,10 +1,10 @@
 {
   "name": "@stackcrafters/repository-aws-dynamodb",
   "description": "A package that provides a base model with access to AWS Dynamodb",
-  "version": "0.0.1",
-  "main": "build/index.js",
+  "version": "0.0.2",
+  "main": "lib/index.js",
   "files": [
-    "build/",
+    "lib/",
     "package.json"
   ],
   "repository": {
@@ -41,6 +41,7 @@
     "build": "npm run clean && npm run lint && babel ./src -d ./lib --source-maps",
     "watch": "babel ./src -d ./lib --source-maps --watch",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "prepublishOnly": "npm run build"
   }
 }
