@@ -1,7 +1,7 @@
 import AWS from 'aws-sdk';
 import { chunkArray } from './array';
 
-export const dynamoDb = new AWS.DynamoDB.DocumentClient();
+export const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 const createKey = (keys, { hashKey, rangeKey }) => ({
   [keys.hashKey]: hashKey,
@@ -33,7 +33,7 @@ export const BaseModel = class BaseModel {
   });
 
   getPaginatedResult = (fn, params, cb, maxRequests = 7, request = 1, items = []) => {
-    fn.call(dynamoDb, params, (err, data) => {
+    fn.call(dynamodb, params, (err, data) => {
       if (err) {
         cb(err, items);
       } else if (data.LastEvaluatedKey && maxRequests > request) {
@@ -50,7 +50,7 @@ export const BaseModel = class BaseModel {
 
   get = (hashKeyRangePair, consistentRead = true) =>
     new Promise((resolve, reject) =>
-      dynamoDb.get(
+      dynamodb.get(
         {
           TableName: this.tableName,
           Key: createKey(this.keys, hashKeyRangePair),
@@ -65,7 +65,7 @@ export const BaseModel = class BaseModel {
 
   remove = (hashKeyRangePair) =>
     new Promise((resolve, reject) => {
-      dynamoDb.delete(
+      dynamodb.delete(
         {
           TableName: this.tableName,
           Key: createKey(this.keys, hashKeyRangePair)
@@ -80,7 +80,7 @@ export const BaseModel = class BaseModel {
   removeBatch = (hashKeyRangePairs) =>
     Promise.all(
       chunkArray(hashKeyRangePairs, 25).map((pairs) =>
-        dynamoDb
+        dynamodb
           .batchWrite({
             RequestItems: {
               [this.tableName]: pairs.map((k) => {
@@ -120,7 +120,7 @@ export const BaseModel = class BaseModel {
       chunkArray(hashKeyRangePairs, 100).map(
         (pairs) =>
           new Promise((resolve, reject) => {
-            dynamoDb.batchGet(
+            dynamodb.batchGet(
               {
                 RequestItems: {
                   [this.tableName]: {
@@ -155,7 +155,7 @@ export const BaseModel = class BaseModel {
   queryIndex = (index, expression, valueMappings, opts = {}) =>
     new Promise((resolve, reject) => {
       this.getPaginatedResult(
-        dynamoDb.query,
+        dynamodb.query,
         {
           TableName: this.tableName,
           IndexName: index,
@@ -174,7 +174,7 @@ export const BaseModel = class BaseModel {
   query = (expression, keyMapping, valueMappings, consistentRead = true) =>
     new Promise((resolve, reject) => {
       this.getPaginatedResult(
-        dynamoDb.query,
+        dynamodb.query,
         {
           TableName: this.tableName,
           KeyConditionExpression: expression,
@@ -191,7 +191,7 @@ export const BaseModel = class BaseModel {
 
   all = () =>
     new Promise((resolve, reject) => {
-      this.getPaginatedResult(dynamoDb.scan, { TableName: this.tableName }, (err, items) => {
+      this.getPaginatedResult(dynamodb.scan, { TableName: this.tableName }, (err, items) => {
         if (err) reject(err);
         else resolve(items);
       });
@@ -229,7 +229,7 @@ export const BaseModel = class BaseModel {
         params.ExpressionAttributeValues = versionValues;
       }
 
-      dynamoDb.put(params, (error, data) => {
+      dynamodb.put(params, (error, data) => {
         if (error) reject(error);
         else resolve(item);
       });
@@ -238,7 +238,7 @@ export const BaseModel = class BaseModel {
   saveBatch = (items, userId) =>
     Promise.all(
       chunkArray(items, 25).map((itemBatch) =>
-        dynamoDb
+        dynamodb
           .batchWrite({
             RequestItems: {
               [this.tableName]: itemBatch.map((item) => {
