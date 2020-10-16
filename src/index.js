@@ -1,7 +1,12 @@
 import AWS from 'aws-sdk';
 import { chunkArray } from './array';
 
-export const dynamodb = new AWS.DynamoDB.DocumentClient();
+export const dynamodb = new AWS.DynamoDB.DocumentClient({
+  maxRetries: 3,
+  httpOptions: {
+    timeout: 5000
+  }
+});
 
 const createKey = (keys, { hashKey, rangeKey }) => ({
   [keys.hashKey]: hashKey,
@@ -27,6 +32,7 @@ export const BaseModel = class BaseModel {
     this.tableName = `${process.env.SERVERLESS_STAGE}-${tableName}`;
     this.keys = keys;
   }
+
   baseAttributes = () => ({
     dateUpdated: Date.now(),
     dateCreated: Date.now()
