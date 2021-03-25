@@ -228,7 +228,7 @@ export const BaseModel = class BaseModel {
       const params = {
         TableName: this.tableName,
         Item: item,
-        ReturnValues: 'ALL_OLD',
+        // ReturnValues: 'NONE',
         ConditionExpression: conditionExpression ? `${conditionExpression} AND ${versionCondition}` : versionCondition
       };
       if (versionValues) {
