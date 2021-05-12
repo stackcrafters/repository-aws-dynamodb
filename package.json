@@ -20,7 +20,7 @@
     "aws-sdk": "^2.824.0"
   },
   "devDependencies": {
-    "@stackcrafters/config-babel": "0.0.11"
+    "@stackcrafters/config-babel": "0.1.2"
   },
   "scripts": {
     "clean": "rimraf lib",
