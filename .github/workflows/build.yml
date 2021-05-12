@@ -8,22 +8,17 @@ jobs:
     permissions:
       contents: read
 
-    strategy:
-      matrix:
-        node-version: [12]
-
     steps:
       - uses: actions/checkout@v2
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v2
+      # Setup .npmrc file to publish to GitHub Packages
+      - uses: actions/setup-node@v2
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: "12.x"
           registry-url: "https://npm.pkg.github.com"
           # Defaults to the user or organization that owns the workflow file
           scope: "@stackcrafters"
-      - name: npm ci
-        run: |
-          npm ci
-      - name: Pre PublishOnly Build
-        run: |
-          npm run prepublishOnly
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
+      - name: npm run prepublishOnly
+
