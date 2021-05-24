@@ -5,6 +5,7 @@
   "main": "lib/index.js",
   "files": [
     "/lib",
+    "!lib/**/*.test.*",
     "package.json"
   ],
   "repository": {

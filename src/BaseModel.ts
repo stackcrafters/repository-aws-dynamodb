@@ -35,7 +35,7 @@ interface Keys {
 }
 
 type Opts = {
-  ScanIndexForward?: boolean;
+  ScanIndexForward?: boolean;F
   Limit?: number;
   ExpressionAttributeNames?: Record<string, string>;
   ExpressionAttributeValues?: Record<string, string>;
