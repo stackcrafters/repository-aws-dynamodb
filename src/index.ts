@@ -1,4 +1,5 @@
 import dynamodb from './utils/dynamodb';
+import { default as BaseModel, BaseObject } from './BaseModel';
 
-export { dynamodb };
-export * from './BaseModel';
+export { BaseModel, dynamodb };
+export type { BaseObject };
