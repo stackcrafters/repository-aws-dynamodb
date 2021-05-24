@@ -1,2 +1,4 @@
+import dynamodb from './utils/dynamodb';
+
+export { dynamodb };
 export * from './BaseModel';
-export {default as dynamodb} from './utils/dynamodb';
