@@ -17,7 +17,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "aws-sdk": "^2.905.0"
+    "aws-sdk": "^2.912.0"
   },
   "devDependencies": {
     "@stackcrafters/config-babel": "0.1.3"
