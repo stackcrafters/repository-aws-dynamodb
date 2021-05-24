@@ -1,1 +1,5 @@
-module.exports = require('@stackcrafters/config-babel').jest;
+let jestConfig = require('@stackcrafters/config-babel').jest;
+module.exports = {
+    ...jestConfig,
+    setupFiles: ['./jestHelpers.ts']
+};

@@ -1,0 +1,7 @@
+{
+  "extends": "@stackcrafters/config-babel/config/tsconfig.json",
+  "include": ["src/"],
+  "exclude": [
+    "node_modules"
+  ]
+}

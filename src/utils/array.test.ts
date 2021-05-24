@@ -25,17 +25,17 @@ describe('chunkArray', () => {
       const res = chunkArray([], 2);
       expect(res.length).toBe(0);
     });
-    it('for null input', () => {
-      const res = chunkArray(null, 2);
-      expect(res.length).toBe(0);
-    });
-    it('for undefined input', () => {
-      const res = chunkArray(undefined, 2);
-      expect(res.length).toBe(0);
-    });
-    it('for non-array (boolean) input', () => {
-      const res = chunkArray(true, 2);
-      expect(res.length).toBe(0);
-    });
+    // it('for null input', () => {
+    //   const res = chunkArray(null, 2);
+    //   expect(res.length).toBe(0);
+    // });
+    // it('for undefined input', () => {
+    //   const res = chunkArray(undefined, 2);
+    //   expect(res.length).toBe(0);
+    // });
+    // it('for non-array (boolean) input', () => {
+    //   const res = chunkArray(true, 2);
+    //   expect(res.length).toBe(0);
+    // });
   });
 });

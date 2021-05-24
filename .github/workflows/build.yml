@@ -20,5 +20,7 @@ jobs:
       - run: npm ci
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
+      - run: npm test
+      - run: npm run type-check
       - run: npm run prepublishOnly
 

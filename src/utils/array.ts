@@ -1,4 +1,4 @@
-export const chunkArray = (arr, size) => {
+export const chunkArray = (arr: any[], size: number): any[] => {
   if (!Array.isArray(arr)) {
     return [];
   }
