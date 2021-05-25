@@ -73,12 +73,14 @@ export default class CFTableBuilder {
         KeyType: attr.key
       });
     }
-    if (attr.ttl !== undefined) {
-      this.Properties.TimeToLiveSpecification = {
-        AttributeName: attr.name,
-        Enabled: attr.ttl
-      };
-    }
+    return this;
+  }
+
+  ttl(attributeName: string, enabled = true){
+    this.Properties.TimeToLiveSpecification = {
+      AttributeName: attributeName,
+      Enabled: enabled
+    };
     return this;
   }
 
