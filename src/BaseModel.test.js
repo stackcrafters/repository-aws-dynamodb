@@ -2,33 +2,35 @@ import BaseModel from './BaseModel';
 // import { v4 as uuidv4 } from 'uuid';
 import dynamodb from './utils/dynamodb';
 
+const config = {
+  tableName: 'test',
+  keys: {
+    hashKey: 'id',
+    rangeKey: 'range',
+    globalIndexes: {
+      'dateCreated-index': { hashKey: 'dateCreated' },
+      'createdBy-dateCreated-index': { hashKey: 'createdBy', rangeKey: 'dateCreated' }
+    }
+  }
+};
+
 class TestModel extends BaseModel {
   constructor() {
-    super({
-      tableName: 'test',
-      keys: {
-        hashKey: 'id',
-        rangeKey: 'range',
-        globalIndexes: {
-          'dateCreated-index': { hashKey: 'dateCreated' },
-          'createdBy-dateCreated-index': { hashKey: 'createdBy', rangeKey: 'dateCreated' }
-        }
-      }
-    });
+    super(config);
   }
-
-  //
-  // newInstance = (item) => ({
-  //   id: uuidv4(),
-  //   name: item.name,
-  //   createdBy: item.createdBy || 'system',
-  //   updatedBy: item.updatedBy || item.createdBy || 'system',
-  //   ...this.baseAttributes()
-  // });
 }
 
 const instance = new TestModel();
 Object.freeze(instance);
+
+class TestModelPostfix extends BaseModel {
+  constructor() {
+    super({...config, stage: 'postfix'});
+  }
+}
+
+const postfixInstance = new TestModelPostfix();
+Object.freeze(postfixInstance);
 
 jest.mock('./utils/dynamodb');
 
@@ -57,9 +59,13 @@ describe('get', () => {
     dynamodb.get.mockReturnValue({ promise: () => Promise.resolve({ Item: item }) });
   });
 
-  it('queries the correct table name', async () => {
+  it('queries the correct table name (prefix)', async () => {
     await instance.get({ id: 'id1', range: 'r1' });
     expect(dynamodb.get).toHaveBeenCalledWith(expect.objectContaining({ TableName: 'stg-test' }));
+  });
+  it('queries the correct table name (postfix)', async () => {
+    await postfixInstance.get({ id: 'id1', range: 'r1' });
+    expect(dynamodb.get).toHaveBeenCalledWith(expect.objectContaining({ TableName: 'test-stg' }));
   });
   it('queries using the object hash and range keys', async () => {
     await instance.get({ id: 'k1', range: 'r1', unrelated: 'pickles' });
