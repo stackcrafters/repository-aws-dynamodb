@@ -25,12 +25,21 @@ Object.freeze(instance);
 
 class TestModelPostfix extends BaseModel {
   constructor() {
-    super({...config, stage: 'postfix'});
+    super({ ...config, stage: 'postfix' });
   }
 }
 
 const postfixInstance = new TestModelPostfix();
 Object.freeze(postfixInstance);
+
+class TestModelNoStage extends BaseModel {
+  constructor() {
+    super({ ...config, stage: 'none' });
+  }
+}
+
+const noStageInstance = new TestModelNoStage();
+Object.freeze(noStageInstance);
 
 jest.mock('./utils/dynamodb');
 
@@ -66,6 +75,10 @@ describe('get', () => {
   it('queries the correct table name (postfix)', async () => {
     await postfixInstance.get({ id: 'id1', range: 'r1' });
     expect(dynamodb.get).toHaveBeenCalledWith(expect.objectContaining({ TableName: 'test-stg' }));
+  });
+  it('queries the correct table name (no stage)', async () => {
+    await noStageInstance.get({ id: 'id1', range: 'r1' });
+    expect(dynamodb.get).toHaveBeenCalledWith(expect.objectContaining({ TableName: 'test' }));
   });
   it('queries using the object hash and range keys', async () => {
     await instance.get({ id: 'k1', range: 'r1', unrelated: 'pickles' });

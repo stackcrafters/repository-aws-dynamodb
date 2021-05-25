@@ -46,8 +46,12 @@ export default class BaseModel<T extends BaseObject> {
   private readonly tableName: string;
   private readonly keys: Keys;
 
-  constructor({ tableName, stage = 'prefix', keys }: {tableName: string, stage?: 'postfix'|'prefix', keys: Keys}) {
-    this.tableName = stage === 'prefix' ? `${process.env.SERVERLESS_STAGE}-${tableName}` : `${tableName}-${process.env.SERVERLESS_STAGE}`;
+  constructor({ tableName, stage = 'prefix', keys }: { tableName: string; stage?: 'postfix' | 'prefix' | 'none'; keys: Keys }) {
+    if (stage === 'none') {
+      this.tableName = tableName;
+    } else {
+      this.tableName = stage === 'prefix' ? `${process.env.SERVERLESS_STAGE}-${tableName}` : `${tableName}-${process.env.SERVERLESS_STAGE}`;
+    }
     this.keys = keys;
   }
 
