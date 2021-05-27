@@ -3,7 +3,7 @@ type Attribute = { name: string; type: 'S' | 'N' | 'B'; key?: KeyType; ttl?: boo
 type IndexKey = { name: string; key: KeyType };
 
 type ProjectionType = 'KEYS_ONLY' | 'INCLUDE' | 'ALL';
-type StreamViewType = 'KEYS_ONLY'|'NEW_IMAGE'|'OLD_IMAGE'|'NEW_AND_OLD_IMAGES';
+type StreamViewType = 'KEYS_ONLY' | 'NEW_IMAGE' | 'OLD_IMAGE' | 'NEW_AND_OLD_IMAGES';
 
 type IndexEntry = { AttributeName: string; KeyType: KeyType };
 
@@ -77,7 +77,7 @@ export default class CFTableBuilder {
     return this;
   }
 
-  ttl(attributeName: string, enabled = true){
+  ttl(attributeName: string, enabled = true) {
     this.Properties.TimeToLiveSpecification = {
       AttributeName: attributeName,
       Enabled: enabled
@@ -85,9 +85,9 @@ export default class CFTableBuilder {
     return this;
   }
 
-  stream(streamViewType: StreamViewType){
+  stream(streamViewType: StreamViewType) {
     this.Properties.StreamSpecification = {
-      StreamViewType: streamViewType,
+      StreamViewType: streamViewType
     };
     return this;
   }
