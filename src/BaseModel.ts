@@ -38,7 +38,7 @@ type Opts = {
   ScanIndexForward?: boolean;
   Limit?: number;
   ExpressionAttributeNames?: Record<string, string>;
-  ExpressionAttributeValues?: Record<string, string>;
+  ExpressionAttributeValues?: Record<string, any>;
   KeyConditionExpression?: string;
 };
 
