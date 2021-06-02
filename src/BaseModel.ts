@@ -307,7 +307,7 @@ export default class BaseModel<T extends BaseObject> {
       });
     });
 
-  saveBatch = (items: any[], userId) =>
+  saveBatch = (items: any[], userId?) =>
     Promise.all(
       chunkArray(items, 25).map((itemBatch) =>
         dynamoDb

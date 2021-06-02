@@ -1,5 +1,5 @@
 type KeyType = 'HASH' | 'RANGE';
-type Attribute = { name: string; type: 'S' | 'N' | 'B'; key?: KeyType; ttl?: boolean };
+type Attribute = { name: string; type: 'S' | 'N' | 'B' | 'BOOL' | 'SS' | 'NS' | 'BS'; key?: KeyType };
 type IndexKey = { name: string; key: KeyType };
 
 type ProjectionType = 'KEYS_ONLY' | 'INCLUDE' | 'ALL';
