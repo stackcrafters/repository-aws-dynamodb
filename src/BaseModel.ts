@@ -73,8 +73,7 @@ export default class BaseModel<T extends BaseObject> {
 
   baseAttributes = (): BaseObject => ({
     dateUpdated: this.currentTimestamp(),
-    dateCreated: this.currentTimestamp(),
-    version: 1
+    dateCreated: this.currentTimestamp()
   });
 
   getPaginatedResult = (
