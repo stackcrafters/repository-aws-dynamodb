@@ -42,22 +42,39 @@ type Opts = {
   KeyConditionExpression?: string;
 };
 
+type Config = {
+    dateUnits: 's' | 'ms';
+}
+
 export default class BaseModel<T extends BaseObject> {
   private readonly tableName: string;
   private readonly keys: Keys;
+  private readonly config: Config;
 
-  constructor({ tableName, stage = 'prefix', keys }: { tableName: string; stage?: 'postfix' | 'prefix' | 'none'; keys: Keys }) {
+  constructor({ tableName, stage = 'prefix', keys, config }: { tableName: string; stage?: 'postfix' | 'prefix' | 'none'; keys: Keys; config?: Config }) {
     if (stage === 'none') {
       this.tableName = tableName;
     } else {
       this.tableName = stage === 'prefix' ? `${process.env.SERVERLESS_STAGE}-${tableName}` : `${tableName}-${process.env.SERVERLESS_STAGE}`;
     }
     this.keys = keys;
+    this.config = {
+        dateUnits: 's',
+        ...(config || {})
+    }
+  }
+
+  currentTimestamp = () => {
+      if(this.config.dateUnits === 's'){
+          return dateNow();//s
+      }
+      return Date.now();//ms
   }
 
   baseAttributes = (): BaseObject => ({
-    dateUpdated: dateNow(),
-    dateCreated: dateNow()
+    dateUpdated: this.currentTimestamp(),
+    dateCreated: this.currentTimestamp(),
+    version: 1
   });
 
   getPaginatedResult = (
@@ -287,7 +304,7 @@ export default class BaseModel<T extends BaseObject> {
       item.version = item.version ? item.version + 1 : 1;
 
       if (item.dateUpdated) {
-        item.dateUpdated = dateNow();
+        item.dateUpdated = this.currentTimestamp();
       }
       if (item.updatedBy && userId) {
         item.updatedBy = userId;
@@ -321,7 +338,7 @@ export default class BaseModel<T extends BaseObject> {
                   throw new Error(`item being saved does not contain a valid rangeKey (${this.keys.rangeKey}=undefined)`);
                 }
                 if (item.dateUpdated) {
-                  item.dateUpdated = dateNow();
+                  item.dateUpdated = this.currentTimestamp();
                 }
                 if (item.updatedBy && userId) {
                   item.updatedBy = userId;
