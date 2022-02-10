@@ -102,6 +102,7 @@ export default class CFTableBuilder {
 
   build() {
     const gsiEntries = this.Properties.GlobalSecondaryIndexes?.map((i) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { parent, ...entry } = i;
       return entry;
     });

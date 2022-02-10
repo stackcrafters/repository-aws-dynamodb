@@ -2,6 +2,7 @@ import dynamoDb from './utils/dynamodb';
 import { chunkArray } from './utils/array';
 import { dateNow } from './utils/date';
 import { AWSError } from 'aws-sdk';
+import { DocumentClient } from 'aws-sdk/lib/dynamodb/document_client';
 
 const createKey = (keys: Keys, item: BaseObject): Record<string, string> => ({
   [keys.hashKey]: item[keys.hashKey],
@@ -43,15 +44,25 @@ type Opts = {
 };
 
 type Config = {
-    dateUnits: 's' | 'ms';
-}
+  dateUnits: 's' | 'ms';
+};
 
 export default class BaseModel<T extends BaseObject> {
   private readonly tableName: string;
   private readonly keys: Keys;
   private readonly config: Config;
 
-  constructor({ tableName, stage = 'prefix', keys, config }: { tableName: string; stage?: 'postfix' | 'prefix' | 'none'; keys: Keys; config?: Config }) {
+  constructor({
+    tableName,
+    stage = 'prefix',
+    keys,
+    config
+  }: {
+    tableName: string;
+    stage?: 'postfix' | 'prefix' | 'none';
+    keys: Keys;
+    config?: Config;
+  }) {
     if (stage === 'none') {
       this.tableName = tableName;
     } else {
@@ -59,17 +70,17 @@ export default class BaseModel<T extends BaseObject> {
     }
     this.keys = keys;
     this.config = {
-        dateUnits: 's',
-        ...(config || {})
-    }
+      dateUnits: 's',
+      ...(config || {})
+    };
   }
 
   currentTimestamp = () => {
-      if(this.config.dateUnits === 's'){
-          return dateNow();//s
-      }
-      return Date.now();//ms
-  }
+    if (this.config.dateUnits === 's') {
+      return dateNow(); //s
+    }
+    return Date.now(); //ms
+  };
 
   baseAttributes = (): BaseObject => ({
     dateUpdated: this.currentTimestamp(),
@@ -112,7 +123,7 @@ export default class BaseModel<T extends BaseObject> {
       .promise()
       .then(
         (data) => {
-          return data.Item;
+          return <T>data.Item;
         },
         (err) => {
           console.warn(`Object with key ${JSON.stringify(key)} not found`, err);
@@ -287,40 +298,45 @@ export default class BaseModel<T extends BaseObject> {
       });
     });
 
+  prepareSave = (item: T, userId?, conditionExpression = false): DocumentClient.PutItemInput => {
+    if (!item[this.keys.hashKey]) {
+      throw new Error(`item being saved does not contain a valid hashKey (${this.keys.hashKey}=undefined)`);
+    }
+    if (this.keys.rangeKey && !item[this.keys.rangeKey]) {
+      throw new Error(`item being saved does not contain a valid rangeKey (${this.keys.rangeKey}=undefined)`);
+    }
+
+    const versionCondition = getVersionCondition(item);
+    const versionValues = getVersionValues(item);
+    item.version = item.version ? item.version + 1 : 1;
+
+    if (item.dateUpdated) {
+      item.dateUpdated = this.currentTimestamp();
+    }
+    if (item.updatedBy && userId) {
+      item.updatedBy = userId;
+    }
+
+    return {
+      TableName: this.tableName,
+      Item: <T & { [p: string]: any }>item,
+      ReturnValues: 'ALL_OLD',
+      ConditionExpression: conditionExpression ? `${conditionExpression} AND ${versionCondition}` : versionCondition,
+      ...(versionValues ? { ExpressionAttributeValues: versionValues } : {})
+    };
+  };
+
   save = (item: T, userId?, conditionExpression = false): Promise<T> =>
     new Promise((resolve, reject) => {
-      if (!item[this.keys.hashKey]) {
-        reject(new Error(`item being saved does not contain a valid hashKey (${this.keys.hashKey}=undefined)`));
-        return;
+      try {
+        const params = this.prepareSave(item, userId, conditionExpression);
+        dynamoDb.put(params, (error) => {
+          if (error) reject(error);
+          else resolve(item);
+        });
+      } catch (e) {
+        reject(e);
       }
-      if (this.keys.rangeKey && !item[this.keys.rangeKey]) {
-        reject(new Error(`item being saved does not contain a valid rangeKey (${this.keys.rangeKey}=undefined)`));
-        return;
-      }
-
-      const versionCondition = getVersionCondition(item);
-      const versionValues = getVersionValues(item);
-      item.version = item.version ? item.version + 1 : 1;
-
-      if (item.dateUpdated) {
-        item.dateUpdated = this.currentTimestamp();
-      }
-      if (item.updatedBy && userId) {
-        item.updatedBy = userId;
-      }
-
-      const params = {
-        TableName: this.tableName,
-        Item: <T & { [p: string]: any }>item,
-        ReturnValues: 'ALL_OLD',
-        ConditionExpression: conditionExpression ? `${conditionExpression} AND ${versionCondition}` : versionCondition,
-        ...(versionValues ? { ExpressionAttributeValues: versionValues } : {})
-      };
-
-      dynamoDb.put(params, (error) => {
-        if (error) reject(error);
-        else resolve(item);
-      });
     });
 
   saveBatch = (items: any[], userId?) =>
@@ -354,18 +370,22 @@ export default class BaseModel<T extends BaseObject> {
       )
     );
 
-  update = (keyObj, opts = {}): Promise<T | undefined> => {
+  prepareUpdate = (keyObj, opts = {}): DocumentClient.UpdateItemInput => {
     const key = createKey(this.keys, keyObj);
+    return {
+      TableName: this.tableName,
+      Key: key,
+      ...opts
+    };
+  };
+
+  update = (keyObj, opts = {}): Promise<T | undefined> => {
     return <Promise<T>>dynamoDb
-      .update({
-        TableName: this.tableName,
-        Key: key,
-        ...opts
-      })
+      .update(this.prepareUpdate(keyObj, opts))
       .promise()
       .then(
         (data) => {
-          return data.Attributes;
+          return <T>data.Attributes;
         },
         (err) => {
           throw err;
