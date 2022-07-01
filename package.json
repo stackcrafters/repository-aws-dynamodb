@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@stackcrafters/config-babel": "0.1.7",
-    "@types/jest": "^27.4.0"
+    "@types/jest": "^28.1.4"
   },
   "scripts": {
     "clean": "rimraf lib",
