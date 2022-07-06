@@ -35,13 +35,16 @@ interface Keys {
   globalIndexes?: { [key: string]: Keys };
 }
 
-type Opts = {
+type GetOpts = {
+  ProjectionExpression?: string;
+}
+
+type Opts = GetOpts & {
   ScanIndexForward?: boolean;
   Limit?: number;
   ExpressionAttributeNames?: Record<string, string>;
   ExpressionAttributeValues?: Record<string, any>;
   KeyConditionExpression?: string;
-  ProjectionExpression?: string;
 };
 
 type Config = {
@@ -113,13 +116,14 @@ export default class BaseModel<T extends BaseObject> {
     });
   };
 
-  get = (keyObj, consistentRead = true): Promise<T | undefined> => {
+  get = (keyObj, {consistentRead = true, opts = {}}: { opts?: GetOpts; consistentRead?: boolean}): Promise<T | undefined> => {
     const key = createKey(this.keys, keyObj);
     return <Promise<T>>dynamoDb
       .get({
         TableName: this.tableName,
         Key: key,
-        ConsistentRead: consistentRead
+        ConsistentRead: consistentRead,
+        ...opts
       })
       .promise()
       .then(
