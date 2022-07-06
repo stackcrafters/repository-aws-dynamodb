@@ -116,7 +116,7 @@ export default class BaseModel<T extends BaseObject> {
     });
   };
 
-  get = (keyObj, {consistentRead = true, opts = {}}: { opts?: GetOpts; consistentRead?: boolean}): Promise<T | undefined> => {
+  get = (keyObj, {consistentRead = true, opts = {}}: { opts?: GetOpts; consistentRead?: boolean} = {}): Promise<T | undefined> => {
     const key = createKey(this.keys, keyObj);
     return <Promise<T>>dynamoDb
       .get({
