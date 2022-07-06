@@ -36,13 +36,13 @@ interface Keys {
 }
 
 type GetOpts = {
+  ExpressionAttributeNames?: Record<string, string>;
   ProjectionExpression?: string;
 }
 
 type Opts = GetOpts & {
   ScanIndexForward?: boolean;
   Limit?: number;
-  ExpressionAttributeNames?: Record<string, string>;
   ExpressionAttributeValues?: Record<string, any>;
   KeyConditionExpression?: string;
 };
