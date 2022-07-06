@@ -41,6 +41,7 @@ type Opts = {
   ExpressionAttributeNames?: Record<string, string>;
   ExpressionAttributeValues?: Record<string, any>;
   KeyConditionExpression?: string;
+  ProjectionExpression?: string;
 };
 
 type Config = {
