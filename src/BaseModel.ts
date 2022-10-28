@@ -51,6 +51,18 @@ type Config = {
   dateUnits: 's' | 'ms';
 };
 
+type UpdateOpts = {
+  opts?: {
+    ExpressionAttributeNames?: Record<string, string>;
+    ExpressionAttributeValues?: Record<string, string>;
+    ConditionExpression?: string;
+    UpdateExpression?: string;
+    ReturnValues?: string;
+  };
+  autoResolveProperties?: boolean;
+  skipVersionCondition?: boolean;
+};
+
 export default class BaseModel<T extends BaseObject> {
   private readonly tableName: string;
   private readonly keys: Keys;
@@ -118,7 +130,7 @@ export default class BaseModel<T extends BaseObject> {
 
   get = (keyObj, { consistentRead = true, opts = {} }: { opts?: GetOpts; consistentRead?: boolean } = {}): Promise<T | undefined> => {
     const key = createKey(this.keys, keyObj);
-    return <Promise<T>>dynamoDb
+    return <Promise<T | undefined>>dynamoDb
       .get({
         TableName: this.tableName,
         Key: key,
@@ -396,5 +408,76 @@ export default class BaseModel<T extends BaseObject> {
           throw err;
         }
       );
+  };
+
+  prepareUpdateV2 = (
+    item,
+    changes = {},
+    {
+      opts = {
+        ExpressionAttributeNames: {},
+        ExpressionAttributeValues: {},
+        ConditionExpression: undefined,
+        UpdateExpression: undefined,
+        ReturnValues: 'ALL_NEW'
+      },
+      autoResolveProperties = true,
+      skipVersionCondition = false
+    }: UpdateOpts,
+    userId?: string
+  ): DocumentClient.UpdateItemInput => {
+    if (!item[this.keys.hashKey]) {
+      throw new Error(`item being updated does not contain a valid hashKey (${this.keys.hashKey}=undefined)`);
+    }
+    if (this.keys.rangeKey && !item[this.keys.rangeKey]) {
+      throw new Error(`item being updated does not contain a valid rangeKey (${this.keys.rangeKey}=undefined)`);
+    }
+
+    const names = {
+      '#version': 'version',
+      '#dateCreated': 'dateCreated',
+      '#dateUpdated': 'dateUpdated',
+      ...(userId ? { '#createdBy': 'createdBy', '#updatedBy': 'updatedBy' } : {})
+    };
+    const values = {
+      ...(skipVersionCondition ? {} : { ...getVersionValues(item) }),
+      ...(userId ? { ':userId': userId } : {}),
+      ':v_0': 0,
+      ':v_1': 1,
+      ':now': this.currentTimestamp()
+    };
+    if (autoResolveProperties) {
+      Object.entries(changes).map(([k, v]) => {
+        names[`#k_${k}`] = k;
+        values[`:v_${k}`] = v;
+      });
+    }
+    return {
+      TableName: this.tableName,
+      Key: createKey(this.keys, item),
+      ExpressionAttributeNames: { ...names, ...opts?.ExpressionAttributeNames },
+      ExpressionAttributeValues: { ...values, ...opts?.ExpressionAttributeValues },
+      ConditionExpression: skipVersionCondition
+        ? opts?.ConditionExpression
+        : `${opts?.ConditionExpression ? `${opts.ConditionExpression} AND ` : ''}${getVersionCondition(item)}`,
+      ReturnValues: opts?.ReturnValues,
+      UpdateExpression:
+        (opts?.UpdateExpression
+          ? `${opts?.UpdateExpression}, ${opts.UpdateExpression?.indexOf('SET') > -1 ? '' : 'SET '}`
+          : `SET ${Object.keys(changes)
+              .map((k) => `#k_${k} = :v_${k}`)
+              .join(', ')}, `) +
+        '#version = if_not_exists(#version, :v_0) + :v_1, ' +
+        (userId ? '#createdBy = if_not_exists(#createdBy, :userId), #updatedBy = :userId, ' : '') +
+        '#dateCreated = if_not_exists(#dateCreated, :now), ' +
+        '#dateUpdated = :now'
+    };
+  };
+
+  updateV2 = (item, changes = {}, updateOpts: UpdateOpts, userId?: string): Promise<T | undefined> => {
+    return <Promise<T>>dynamoDb
+      .update(this.prepareUpdateV2(item, changes, updateOpts, userId))
+      .promise()
+      .then((data) => <T>data.Attributes);
   };
 }

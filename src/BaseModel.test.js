@@ -296,7 +296,7 @@ describe('queryIndex', () => {
     dynamodb.query.mockImplementationOnce((_, cb) => cb(false, { Items: [{ item: true }], LastEvaluatedKey: 'xyz' }));
     dynamodb.query.mockImplementationOnce((_, cb) => cb(true));
 
-    await expect(async () => await instance.queryIndex('dateCreated-index', { dateCreated: 302487 })).rejects.toEqual(true)
+    await expect(async () => await instance.queryIndex('dateCreated-index', { dateCreated: 302487 })).rejects.toEqual(true);
   });
 });
 

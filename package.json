@@ -18,11 +18,11 @@
   },
   "license": "MIT",
   "dependencies": {
-    "aws-sdk": "^2.1220.0"
+    "aws-sdk": "^2.1242.0"
   },
   "devDependencies": {
     "@stackcrafters/config-babel": "0.1.9",
-    "@types/jest": "^29.0.3"
+    "@types/jest": "^29.2.0"
   },
   "scripts": {
     "clean": "rimraf lib",
