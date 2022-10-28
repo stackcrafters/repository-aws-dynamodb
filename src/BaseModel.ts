@@ -413,19 +413,17 @@ export default class BaseModel<T extends BaseObject> {
   prepareUpdateV2 = (
     item,
     changes = {},
-    {
-      opts = {
-        ExpressionAttributeNames: {},
-        ExpressionAttributeValues: {},
-        ConditionExpression: undefined,
-        UpdateExpression: undefined,
-        ReturnValues: 'ALL_NEW'
-      },
-      autoResolveProperties = true,
-      skipVersionCondition = false
-    }: UpdateOpts,
+    { autoResolveProperties = true, skipVersionCondition = false, opts: overrideOpts = {} }: UpdateOpts = { opts: {} },
     userId?: string
   ): DocumentClient.UpdateItemInput => {
+    const opts = {
+      ExpressionAttributeNames: {},
+      ExpressionAttributeValues: {},
+      ConditionExpression: undefined,
+      UpdateExpression: undefined,
+      ReturnValues: 'ALL_NEW',
+      ...overrideOpts
+    };
     if (!item[this.keys.hashKey]) {
       throw new Error(`item being updated does not contain a valid hashKey (${this.keys.hashKey}=undefined)`);
     }
@@ -474,7 +472,7 @@ export default class BaseModel<T extends BaseObject> {
     };
   };
 
-  updateV2 = (item, changes = {}, updateOpts: UpdateOpts, userId?: string): Promise<T | undefined> => {
+  updateV2 = (item, changes = {}, updateOpts?: UpdateOpts, userId?: string): Promise<T | undefined> => {
     return <Promise<T>>dynamoDb
       .update(this.prepareUpdateV2(item, changes, updateOpts, userId))
       .promise()
