@@ -1,7 +1,7 @@
 {
   "name": "@stackcrafters/repository-aws-dynamodb",
   "description": "A package that provides a base model with access to AWS Dynamodb",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "main": "lib/index.js",
   "files": [
     "/lib",
@@ -18,11 +18,11 @@
   },
   "license": "MIT",
   "dependencies": {
-    "aws-sdk": "^2.1242.0"
+    "aws-sdk": "^2.1287.0"
   },
   "devDependencies": {
-    "@stackcrafters/config-babel": "0.1.9",
-    "@types/jest": "^29.2.0"
+    "@stackcrafters/config-babel": "0.1.10",
+    "@types/jest": "^29.2.5"
   },
   "scripts": {
     "clean": "rimraf lib",
