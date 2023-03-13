@@ -59,7 +59,8 @@ export default class CFTableBuilder {
       SSESpecification: { SSEEnabled: true },
       PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true },
       AttributeDefinitions: [],
-      KeySchema: []
+      KeySchema: [],
+      Tags: []
     };
   }
 
@@ -98,6 +99,11 @@ export default class CFTableBuilder {
     const indexBuilder = new IndexBuilder(name, this);
     indexes.push(indexBuilder);
     return indexBuilder;
+  }
+
+  tag(key: string, value: string) {
+    this.Properties.Tags.push({ Key: key, Value: value });
+    return this;
   }
 
   build() {

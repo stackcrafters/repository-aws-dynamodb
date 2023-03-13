@@ -6,7 +6,7 @@ import { DocumentClient } from 'aws-sdk/lib/dynamodb/document_client';
 
 const createKey = (keys: Keys, item: BaseObject): Record<string, string> => ({
   [keys.hashKey]: item[keys.hashKey],
-  ...(keys.rangeKey && item[keys.rangeKey] ? { [keys.rangeKey]: item[keys.rangeKey] } : {})
+  ...(keys.rangeKey && item.hasOwnProperty(keys.rangeKey) ? { [keys.rangeKey]: item[keys.rangeKey] } : {})
 });
 
 const getVersionCondition = (item: BaseObject): string => {
@@ -54,7 +54,7 @@ type Config = {
 type UpdateOpts = {
   opts?: {
     ExpressionAttributeNames?: Record<string, string>;
-    ExpressionAttributeValues?: Record<string, string>;
+    ExpressionAttributeValues?: Record<string, any>;
     ConditionExpression?: string;
     UpdateExpression?: string;
     ReturnValues?: string;
