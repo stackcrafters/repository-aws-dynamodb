@@ -56,12 +56,17 @@ export default class CFTableBuilder {
     this.Properties = {
       TableName: tableName,
       BillingMode: 'PAY_PER_REQUEST',
-      SSESpecification: { SSEEnabled: true },
+      SSESpecification: { SSEEnabled: false },
       PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true },
       AttributeDefinitions: [],
       KeySchema: [],
       Tags: []
     };
+  }
+
+  sseEnabled(sse: boolean) {
+    this.Properties.SSESpecification = { SSEEnabled: sse };
+    return this;
   }
 
   attribute(attr: Attribute) {
