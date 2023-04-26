@@ -1,4 +1,9 @@
-import { chunkArray } from '../lib/utils/array';
+const chunkArray = (arr: any[], size: number): any[] => {
+    if (!Array.isArray(arr)) {
+        return [];
+    }
+    return Array.from({ length: Math.ceil(arr.length / size) }, (v, i) => arr.slice(i * size, i * size + size));
+};
 
 export const buildBatchRequests = (records, operation, prop = 'Item') => {
   const entries = Object.entries(records).reduce<[string, any[]][]>((acc, [tableName, items]: [string, any]) => {
