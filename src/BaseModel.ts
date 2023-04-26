@@ -1,13 +1,19 @@
-import dynamoDb from './utils/dynamodb';
 import { chunkArray } from './utils/array';
 import { dateNow } from './utils/date';
-import { AWSError } from 'aws-sdk';
-import { DocumentClient } from 'aws-sdk/lib/dynamodb/document_client';
-
-const createKey = (keys: Keys, item: BaseObject): Record<string, string> => ({
-  [keys.hashKey]: item[keys.hashKey],
-  ...(keys.rangeKey && item.hasOwnProperty(keys.rangeKey) ? { [keys.rangeKey]: item[keys.rangeKey] } : {})
-});
+import { dbClient } from './utils/dynamoDbv3';
+import {
+  BatchGetCommand,
+  BatchWriteCommand,
+  DeleteCommand,
+  GetCommand,
+  paginateQuery,
+  paginateScan,
+  PutCommand,
+  PutCommandInput,
+  UpdateCommand,
+  UpdateCommandInput
+} from '@aws-sdk/lib-dynamodb';
+import { Paginator } from '@aws-sdk/types';
 
 const getVersionCondition = (item: BaseObject): string => {
   if (item.version) {
@@ -40,11 +46,12 @@ type GetOpts = {
   ProjectionExpression?: string;
 };
 
-type Opts = GetOpts & {
+type QueryOpts = GetOpts & {
   ScanIndexForward?: boolean;
   Limit?: number;
   ExpressionAttributeValues?: Record<string, any>;
   KeyConditionExpression?: string;
+  ExclusiveStartKey?: any;
 };
 
 type Config = {
@@ -59,7 +66,6 @@ type UpdateOpts = {
     UpdateExpression?: string;
     ReturnValues?: string;
   };
-  autoResolveProperties?: boolean;
   skipVersionCondition?: boolean;
 };
 
@@ -103,136 +109,148 @@ export default class BaseModel<T extends BaseObject> {
     dateCreated: this.currentTimestamp()
   });
 
-  getPaginatedResult = (
-    fn,
-    params,
-    cb: (err?: AWSError | boolean, items?: T[], lastEvaluatedKey?: string) => void,
-    maxRequests = 7,
-    request = 1,
-    items = <T[]>[]
-  ): void => {
-    fn.call(dynamoDb, params, (err, data) => {
-      if (err) {
-        cb(err, items);
-      } else {
-        if (data.LastEvaluatedKey && maxRequests > request) {
-          params.ExclusiveStartKey = data.LastEvaluatedKey;
-          this.getPaginatedResult(fn, params, cb, maxRequests, request + 1, items.concat(data.Items || []));
-        } else {
-          if (maxRequests <= request) {
-            console.warn(`dynamodb results truncated, maximum number of requests was reached (${maxRequests})`);
-          }
-          cb(false, items.concat(data.Items || []), data.LastEvaluatedKey);
-        }
+  createKey = (item: BaseObject, keySpec = this.keys): Record<string, any> => ({
+    [keySpec.hashKey]: item[keySpec.hashKey],
+    ...(keySpec.rangeKey && item.hasOwnProperty(keySpec.rangeKey) ? { [keySpec.rangeKey]: item[keySpec.rangeKey] } : {})
+  });
+
+  createIndexKey = (index: string, item: BaseObject) => ({
+    ...this.createKey(item),
+    ...this.createKey(item, this.keys.globalIndexes?.[index])
+  });
+
+  private validateItemKeys(item, action = 'saved') {
+    if (!item[this.keys.hashKey]) {
+      throw new Error(`item being ${action} does not contain a valid hashKey (${this.keys.hashKey})`);
+    }
+    if (this.keys.rangeKey && !item[this.keys.rangeKey]) {
+      throw new Error(`item being ${action} does not contain a valid rangeKey (${this.keys.rangeKey})`);
+    }
+  }
+
+  private getPaginatedResult = async (paginator: Paginator<any>, maxRequests = 7, indexName?: string) => {
+    let items: T[] = [];
+    let request = 0;
+    let done = false;
+    while (maxRequests > request && !done) {
+      const { value: itemData, done: paginatorDone } = await paginator.next();
+      done = paginatorDone ?? true;
+      if (itemData) {
+        items = items.concat(itemData.Items);
       }
-    });
+      request++;
+    }
+    if (maxRequests <= request) {
+      console.warn(`dynamodb results truncated, maximum number of requests was reached (${maxRequests})`);
+    }
+    let lastEvaluatedKey: any = undefined;
+    if (!done && items.length > 0) {
+      const lastItem = items[items.length - 1];
+      lastEvaluatedKey = indexName ? this.createIndexKey(indexName, lastItem) : this.createKey(lastItem);
+    }
+    return { items, lastEvaluatedKey };
   };
 
-  get = (keyObj, { consistentRead = true, opts = {} }: { opts?: GetOpts; consistentRead?: boolean } = {}): Promise<T | undefined> => {
-    const key = createKey(this.keys, keyObj);
-    return <Promise<T | undefined>>dynamoDb
-      .get({
-        TableName: this.tableName,
-        Key: key,
-        ConsistentRead: consistentRead,
-        ...opts
-      })
-      .promise()
-      .then(
-        (data) => {
-          return <T>data.Item;
-        },
-        (err) => {
-          console.warn(`Object with key ${JSON.stringify(key)} not found`, err);
-          return undefined;
-        }
+  get = async (keyObj, { consistentRead = true, opts = {} }: { opts?: GetOpts; consistentRead?: boolean } = {}): Promise<T | undefined> => {
+    const key = this.createKey(keyObj);
+    try {
+      const { Item } = await dbClient.send(
+        new GetCommand({
+          TableName: this.tableName,
+          Key: key,
+          ConsistentRead: consistentRead,
+          ...opts
+        })
       );
+      return <T>Item;
+    } catch (err) {
+      console.warn(`Object with key ${JSON.stringify(key)} not found`, err);
+      return undefined;
+    }
   };
 
-  remove = (keyObj) => {
-    return dynamoDb
-      .delete({
+  remove = async (keyObj) => {
+    await dbClient.send(
+      new DeleteCommand({
         TableName: this.tableName,
-        Key: createKey(this.keys, keyObj)
+        Key: this.createKey(keyObj)
       })
-      .promise();
+    );
   };
 
-  removeBatch = (keyObjs: any[]) =>
-    Promise.all(
-      chunkArray(keyObjs, 25).map((objs) =>
-        dynamoDb
-          .batchWrite({
-            RequestItems: {
-              [this.tableName]: objs.map((o) => {
-                return { DeleteRequest: { Key: createKey(this.keys, o) } };
-              })
-            }
-          })
-          .promise()
-          .then((data) => {
-            if (data.UnprocessedItems && data.UnprocessedItems[this.tableName]) {
-              return data.UnprocessedItems[this.tableName];
-            } else {
-              return [];
-            }
-          })
-          .catch((err) => {
-            console.error('error performing removeBatch', err);
-            throw err;
-          })
-      )
-    ).then((arr) => arr.flat());
+  removeBatch = async (keyObjs: any[]) => {
+    try {
+      const results = await Promise.all(
+        chunkArray(keyObjs, 25).map((objs) =>
+          dbClient.send(
+            new BatchWriteCommand({
+              RequestItems: {
+                [this.tableName]: objs.map((o) => {
+                  return { DeleteRequest: { Key: this.createKey(o) } };
+                })
+              }
+            })
+          )
+        )
+      );
+      //return unprocessed items
+      return results.reduce<any[]>((acc, data) => {
+        if (data?.UnprocessedItems?.[this.tableName]) {
+          return acc.concat(data.UnprocessedItems[this.tableName]);
+        }
+        return acc;
+      }, []);
+    } catch (err) {
+      console.error('error performing removeBatch', err);
+      throw err;
+    }
+  };
 
-  getBatch = (keyObjs: any[], consistentRead = true, { opts = {} } = {}): Promise<T[]> => <Promise<T[]>>Promise.all(
+  getBatch = async (keyObjs: any[], consistentRead = true, { opts = {} } = {}): Promise<T[]> => {
+    const results = await Promise.all(
       chunkArray(keyObjs, 100).map((pairs) =>
-        dynamoDb
-          .batchGet({
+        dbClient.send(
+          new BatchGetCommand({
             RequestItems: {
               [this.tableName]: {
-                Keys: pairs.map((p) => createKey(this.keys, p)),
+                Keys: pairs.map((p) => this.createKey(p)),
                 ConsistentRead: consistentRead,
                 ...opts
               }
             }
           })
-          .promise()
-          .then(
-            (data) => {
-              if (data.Responses && data.Responses[this.tableName]) {
-                return data.Responses[this.tableName];
-              }
-            },
-            (err) => {
-              throw err;
-            }
-          )
+        )
       )
-    ).then((arr) => arr.flat());
+    );
+    return results.reduce<T[]>((acc, result) => {
+      if (result.Responses?.[this.tableName]) {
+        return acc.concat(<T[]>result.Responses[this.tableName]);
+      }
+      return acc;
+    }, []);
+  };
 
-  queryIndex = (
+  queryIndex = async (
     index: string,
     keyObj,
     {
       opts = { ExpressionAttributeNames: {}, ExpressionAttributeValues: {} },
       rangeOp = '=',
       maxRequests = 7
-    }: { opts?: Opts; rangeOp?: string; maxRequests?: number } = {}
-  ): Promise<{ items: T[]; lastEvaluatedKey?: string }> =>
-    new Promise((resolve, reject) => {
-      const ind = this.keys.globalIndexes?.[index];
-      if (!ind || !ind.hashKey) {
-        reject(new Error(`index "${index}" is not defined in the model`));
-        return;
-      }
-      const hashKey = <string>ind.hashKey;
-      const rangeKey = <string>ind.rangeKey;
-      const rangeKeyPresent = rangeKey && keyObj[rangeKey];
+    }: { opts?: QueryOpts; rangeOp?: string; pageSize?: number; maxRequests?: number } = {}
+  ): Promise<{ items: T[]; lastEvaluatedKey?: string }> => {
+    const ind = this.keys.globalIndexes?.[index];
+    if (!ind || !ind.hashKey) {
+      throw new Error(`index "${index}" is not defined in the model`);
+    }
+    const { hashKey, rangeKey } = ind;
+    const rangeKeyPresent = rangeKey && keyObj[rangeKey];
 
-      const { ExpressionAttributeNames = {}, ExpressionAttributeValues = {}, ...otherOpts } = opts;
+    const { ExpressionAttributeNames = {}, ExpressionAttributeValues = {}, ...otherOpts } = opts;
 
-      this.getPaginatedResult(
-        dynamoDb.query,
+    return await this.getPaginatedResult(
+      paginateQuery(
+        { client: dbClient, pageSize: opts?.Limit, startingToken: opts?.ExclusiveStartKey },
         {
           TableName: this.tableName,
           IndexName: index,
@@ -250,37 +268,34 @@ export default class BaseModel<T extends BaseObject> {
             ...(rangeKeyPresent ? { ':rkv': keyObj[rangeKey] } : {})
           },
           ...otherOpts
-        },
-        (err, items, lastEvaluatedKey) => {
-          if (err) reject(err);
-          else resolve(<{ items: T[]; lastEvaluatedKey?: string }>{ items, lastEvaluatedKey });
-        },
-        maxRequests
-      );
-    });
+        }
+      ),
+      maxRequests,
+      index
+    );
+  };
 
-  query = (
+  query = async (
     keyObj,
     {
       opts = { ExpressionAttributeNames: {}, ExpressionAttributeValues: {} },
       rangeOp = '=',
       consistentRead = true,
       maxRequests = 7
-    }: { opts?: Opts; rangeOp?: string; consistentRead?: boolean; maxRequests?: number } = {}
-  ): Promise<{ items: T[]; lastEvaluatedKey?: string }> =>
-    new Promise((resolve, reject) => {
-      const hashKey = <string>this.keys.hashKey;
-      if (!keyObj[hashKey]) {
-        reject(new Error(`hashKey ${hashKey} was not found on keyObj`));
-        return;
-      }
-      const rangeKey = <string>this.keys.rangeKey;
-      const rangeKeyPresent = rangeKey && keyObj[rangeKey];
+    }: { opts?: QueryOpts; rangeOp?: string; consistentRead?: boolean; pageSize?: number; maxRequests?: number } = {}
+  ): Promise<{ items: T[]; lastEvaluatedKey?: string }> => {
+    const hashKey = <string>this.keys.hashKey;
+    if (!keyObj[hashKey]) {
+      throw new Error(`hashKey ${hashKey} was not found on keyObj`);
+    }
+    const rangeKey = <string>this.keys.rangeKey;
+    const rangeKeyPresent = rangeKey && keyObj[rangeKey];
 
-      const { ExpressionAttributeNames = {}, ExpressionAttributeValues = {}, ...otherOpts } = opts;
+    const { ExpressionAttributeNames = {}, ExpressionAttributeValues = {}, ...otherOpts } = opts;
 
-      this.getPaginatedResult(
-        dynamoDb.query,
+    return await this.getPaginatedResult(
+      paginateQuery(
+        { client: dbClient, pageSize: opts?.Limit, startingToken: opts?.ExclusiveStartKey },
         {
           TableName: this.tableName,
           KeyConditionExpression: `#hkn = :hkv${
@@ -298,30 +313,19 @@ export default class BaseModel<T extends BaseObject> {
           },
           ConsistentRead: consistentRead,
           ...otherOpts
-        },
-        (err, items, lastEvaluatedKey) => {
-          if (err) reject(err);
-          else resolve(<{ items: T[]; lastEvaluatedKey?: string }>{ items, lastEvaluatedKey });
-        },
-        maxRequests
-      );
-    });
+        }
+      ),
+      maxRequests
+    );
+  };
 
-  all = (): Promise<T[] | undefined> =>
-    new Promise((resolve, reject) => {
-      this.getPaginatedResult(dynamoDb.scan, { TableName: this.tableName }, (err, items) => {
-        if (err) reject(err);
-        else resolve(items);
-      });
-    });
+  all = async (): Promise<T[] | undefined> => {
+    const result = await this.getPaginatedResult(paginateScan({ client: dbClient }, { TableName: this.tableName }));
+    return result.items;
+  };
 
-  prepareSave = (item: T, userId?, conditionExpression = false): DocumentClient.PutItemInput => {
-    if (!item[this.keys.hashKey]) {
-      throw new Error(`item being saved does not contain a valid hashKey (${this.keys.hashKey}=undefined)`);
-    }
-    if (this.keys.rangeKey && !item[this.keys.rangeKey]) {
-      throw new Error(`item being saved does not contain a valid rangeKey (${this.keys.rangeKey}=undefined)`);
-    }
+  prepareSave = (item: T, userId?, conditionExpression?: string): PutCommandInput => {
+    this.validateItemKeys(item);
 
     const versionCondition = getVersionCondition(item);
     const versionValues = getVersionValues(item);
@@ -343,32 +347,19 @@ export default class BaseModel<T extends BaseObject> {
     };
   };
 
-  save = (item: T, userId?, conditionExpression = false): Promise<T> =>
-    new Promise((resolve, reject) => {
-      try {
-        const params = this.prepareSave(item, userId, conditionExpression);
-        dynamoDb.put(params, (error) => {
-          if (error) reject(error);
-          else resolve(item);
-        });
-      } catch (e) {
-        reject(e);
-      }
-    });
+  save = async (item: T, userId?, conditionExpression?: string): Promise<T> => {
+    const params = this.prepareSave(item, userId, conditionExpression);
+    return <T>(await dbClient.send(new PutCommand(params))).Attributes;
+  };
 
-  saveBatch = (items: any[], userId?) =>
-    Promise.all(
+  saveBatch = async (items: any[], userId?) => {
+    return await Promise.all(
       chunkArray(items, 25).map((itemBatch) =>
-        dynamoDb
-          .batchWrite({
+        dbClient.send(
+          new BatchWriteCommand({
             RequestItems: {
               [this.tableName]: itemBatch.map((item) => {
-                if (!item[this.keys.hashKey]) {
-                  throw new Error(`item being saved does not contain a valid hashKey (${this.keys.hashKey}=undefined)`);
-                }
-                if (this.keys.rangeKey && !item[this.keys.rangeKey]) {
-                  throw new Error(`item being saved does not contain a valid rangeKey (${this.keys.rangeKey}=undefined)`);
-                }
+                this.validateItemKeys(item);
                 if (item.dateUpdated) {
                   item.dateUpdated = this.currentTimestamp();
                 }
@@ -383,12 +374,13 @@ export default class BaseModel<T extends BaseObject> {
               })
             }
           })
-          .promise()
+        )
       )
     );
+  };
 
-  prepareUpdate = (keyObj, opts = {}): DocumentClient.UpdateItemInput => {
-    const key = createKey(this.keys, keyObj);
+  prepareUpdate = (keyObj, opts = {}): UpdateCommandInput => {
+    const key = this.createKey(keyObj);
     return {
       TableName: this.tableName,
       Key: key,
@@ -396,26 +388,17 @@ export default class BaseModel<T extends BaseObject> {
     };
   };
 
-  update = (keyObj, opts = {}): Promise<T | undefined> => {
-    return <Promise<T>>dynamoDb
-      .update(this.prepareUpdate(keyObj, opts))
-      .promise()
-      .then(
-        (data) => {
-          return <T>data.Attributes;
-        },
-        (err) => {
-          throw err;
-        }
-      );
+  update = async (keyObj, opts = {}): Promise<T | undefined> => {
+    const data = await dbClient.send(new UpdateCommand(this.prepareUpdate(keyObj, opts)));
+    return <T>data.Attributes;
   };
 
   prepareUpdateV2 = (
     item,
     changes = {},
-    { autoResolveProperties = true, skipVersionCondition = false, opts: overrideOpts = {} }: UpdateOpts = { opts: {} },
+    { skipVersionCondition = false, opts: overrideOpts = {} }: UpdateOpts = { opts: {} },
     userId?: string
-  ): DocumentClient.UpdateItemInput => {
+  ): UpdateCommandInput => {
     const opts = {
       ExpressionAttributeNames: {},
       ExpressionAttributeValues: {},
@@ -424,12 +407,7 @@ export default class BaseModel<T extends BaseObject> {
       ReturnValues: 'ALL_NEW',
       ...overrideOpts
     };
-    if (!item[this.keys.hashKey]) {
-      throw new Error(`item being updated does not contain a valid hashKey (${this.keys.hashKey}=undefined)`);
-    }
-    if (this.keys.rangeKey && !item[this.keys.rangeKey]) {
-      throw new Error(`item being updated does not contain a valid rangeKey (${this.keys.rangeKey}=undefined)`);
-    }
+    this.validateItemKeys(item, 'updated');
 
     const names = {
       '#version': 'version',
@@ -444,15 +422,13 @@ export default class BaseModel<T extends BaseObject> {
       ':v_1': 1,
       ':now': this.currentTimestamp()
     };
-    if (autoResolveProperties) {
-      Object.entries(changes).map(([k, v]) => {
-        names[`#k_${k}`] = k;
-        values[`:v_${k}`] = v;
-      });
-    }
+    Object.entries(changes).forEach(([k, v]) => {
+      names[`#k_${k}`] = k;
+      values[`:v_${k}`] = v;
+    });
     return {
       TableName: this.tableName,
-      Key: createKey(this.keys, item),
+      Key: this.createKey(item),
       ExpressionAttributeNames: { ...names, ...opts?.ExpressionAttributeNames },
       ExpressionAttributeValues: { ...values, ...opts?.ExpressionAttributeValues },
       ConditionExpression: skipVersionCondition
@@ -472,10 +448,8 @@ export default class BaseModel<T extends BaseObject> {
     };
   };
 
-  updateV2 = (item, changes = {}, updateOpts?: UpdateOpts, userId?: string): Promise<T | undefined> => {
-    return <Promise<T>>dynamoDb
-      .update(this.prepareUpdateV2(item, changes, updateOpts, userId))
-      .promise()
-      .then((data) => <T>data.Attributes);
+  updateV2 = async (item, changes = {}, updateOpts?: UpdateOpts, userId?: string): Promise<T | undefined> => {
+    const result = await dbClient.send(new UpdateCommand(this.prepareUpdateV2(item, changes, updateOpts, userId)));
+    return <T>result?.Attributes;
   };
 }

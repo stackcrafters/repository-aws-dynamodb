@@ -1,0 +1,3 @@
+- Updated to AWS SDK v3
+- `updateV2()` / `prepareUpdateV2()`
+  - no longer offers the `autoResolveProperties` option. This was not being used, and the same functionality can be achieved more safely by providing the key/values you want to override in `ExpressionAttributeNames` and `ExpressionAttributeValues`.
