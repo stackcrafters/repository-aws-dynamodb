@@ -708,12 +708,3 @@ describe('all', () => {
     await expect(throws).rejects.toThrow('err');
   });
 });
-
-//TODO vanilla update methods
-//TODO Support tx calls - executetransactioncommand
-//TODO PartiQL - executestatementcommand
-//Todo refactor options - move prefix to opts
-//todo doc breaking changes?
-//todo async lib for batching?, configurable, overrideable batch size
-//todo updateV2 migration?
-//TODO CI PIPELINE, testing, releasing
