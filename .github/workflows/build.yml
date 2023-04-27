@@ -6,6 +6,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
       contents: read
       packages: read
 
@@ -21,7 +22,15 @@ jobs:
       - run: npm ci
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - run: npm test
       - run: npm run type-check
-      - run: npm run prepublishOnly
+      - run: npm test
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::632006987669:role/github-action-dynamodb-tests
+          aws-region: eu-west-1
+
+      - run: npm run integ
+
+      - run: npm run prepublishOnly

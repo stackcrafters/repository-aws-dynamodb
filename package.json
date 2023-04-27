@@ -18,11 +18,14 @@
   },
   "license": "MIT",
   "dependencies": {
-    "aws-sdk": "^2.1359.0"
+    "@aws-sdk/client-dynamodb": "^3.316.0",
+    "@aws-sdk/lib-dynamodb": "^3.316.0"
   },
   "devDependencies": {
     "@stackcrafters/config-babel": "0.1.10",
-    "@types/jest": "^29.5.0"
+    "@types/jest": "^29.5.1",
+    "aws-sdk-client-mock": "^2.1.1",
+    "aws-sdk-client-mock-jest": "^2.1.1"
   },
   "scripts": {
     "clean": "rimraf lib",
@@ -32,7 +35,8 @@
     "build:types": "tsc --emitDeclarationOnly",
     "build:js": "babel ./src -d ./lib  --extensions \".js,.ts,.tsx\" --source-maps --ignore '**/*.test.js'",
     "watch": "babel ./src -d ./lib --source-maps --watch --ignore '**/*.test.js'",
-    "test": "jest",
+    "test": "jest -c jest.config.js",
+    "integ": "jest -c jest.integration.config.js",
     "test:watch": "jest --watch",
     "prepublishOnly": "npm run build"
   }
