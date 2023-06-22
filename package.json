@@ -18,12 +18,12 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.316.0",
-    "@aws-sdk/lib-dynamodb": "^3.316.0"
+    "@aws-sdk/client-dynamodb": "^3.357.0",
+    "@aws-sdk/lib-dynamodb": "^3.357.0"
   },
   "devDependencies": {
     "@stackcrafters/config-babel": "0.1.10",
-    "@types/jest": "^29.5.1",
+    "@types/jest": "^29.5.2",
     "aws-sdk-client-mock": "^2.1.1",
     "aws-sdk-client-mock-jest": "^2.1.1"
   },
