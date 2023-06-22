@@ -238,7 +238,7 @@ export default class BaseModel<T extends BaseObject> {
       rangeOp = '=',
       maxRequests = 7
     }: { opts?: QueryOpts; rangeOp?: string; pageSize?: number; maxRequests?: number } = {}
-  ): Promise<{ items: T[]; lastEvaluatedKey?: string }> => {
+  ): Promise<{ items: T[]; lastEvaluatedKey?: Partial<T> }> => {
     const ind = this.keys.globalIndexes?.[index];
     if (!ind || !ind.hashKey) {
       throw new Error(`index "${index}" is not defined in the model`);
@@ -283,7 +283,7 @@ export default class BaseModel<T extends BaseObject> {
       consistentRead = true,
       maxRequests = 7
     }: { opts?: QueryOpts; rangeOp?: string; consistentRead?: boolean; pageSize?: number; maxRequests?: number } = {}
-  ): Promise<{ items: T[]; lastEvaluatedKey?: string }> => {
+  ): Promise<{ items: T[]; lastEvaluatedKey?: Partial<T> }> => {
     const hashKey = <string>this.keys.hashKey;
     if (!keyObj[hashKey]) {
       throw new Error(`hashKey ${hashKey} was not found on keyObj`);
