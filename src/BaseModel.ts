@@ -14,6 +14,7 @@ import {
   UpdateCommandInput
 } from '@aws-sdk/lib-dynamodb';
 import { Paginator } from '@aws-sdk/types';
+import { QueryCommandOutput } from '@aws-sdk/lib-dynamodb/dist-types/commands/QueryCommand';
 
 const getVersionCondition = (item: BaseObject): string => {
   if (item.version) {
@@ -114,11 +115,6 @@ export default class BaseModel<T extends BaseObject> {
     ...(keySpec.rangeKey && item.hasOwnProperty(keySpec.rangeKey) ? { [keySpec.rangeKey]: item[keySpec.rangeKey] } : {})
   });
 
-  createIndexKey = (index: string, item: BaseObject) => ({
-    ...this.createKey(item),
-    ...this.createKey(item, this.keys.globalIndexes?.[index])
-  });
-
   private validateItemKeys(item, action = 'saved') {
     if (!item[this.keys.hashKey]) {
       throw new Error(`item being ${action} does not contain a valid hashKey (${this.keys.hashKey})`);
@@ -128,25 +124,25 @@ export default class BaseModel<T extends BaseObject> {
     }
   }
 
-  private getPaginatedResult = async (paginator: Paginator<any>, maxRequests = 7, indexName?: string) => {
+  private getPaginatedResult = async (paginator: Paginator<QueryCommandOutput>, maxRequests = 7) => {
     let items: T[] = [];
+    let lastEvaluatedKey: any = undefined;
     let request = 0;
-    let done = false;
-    while (maxRequests > request && !done) {
-      const { value: itemData, done: paginatorDone } = await paginator.next();
-      done = paginatorDone ?? true;
-      if (itemData) {
-        items = items.concat(itemData.Items);
+    let hasNext = true;
+    while (maxRequests > request && hasNext) {
+      const { value: itemData } = await paginator.next();
+      if (itemData?.Items) {
+        hasNext = !!itemData.LastEvaluatedKey;
+        items = items.concat(<T[]>itemData.Items);
+        lastEvaluatedKey = itemData.LastEvaluatedKey;
+      } else {
+        hasNext = false;
+        lastEvaluatedKey = undefined;
       }
       request++;
     }
     if (maxRequests <= request) {
       console.warn(`dynamodb results truncated, maximum number of requests was reached (${maxRequests})`);
-    }
-    let lastEvaluatedKey: any = undefined;
-    if (!done && items.length > 0) {
-      const lastItem = items[items.length - 1];
-      lastEvaluatedKey = indexName ? this.createIndexKey(indexName, lastItem) : this.createKey(lastItem);
     }
     return { items, lastEvaluatedKey };
   };
@@ -270,8 +266,7 @@ export default class BaseModel<T extends BaseObject> {
           ...otherOpts
         }
       ),
-      maxRequests,
-      index
+      maxRequests
     );
   };
 
