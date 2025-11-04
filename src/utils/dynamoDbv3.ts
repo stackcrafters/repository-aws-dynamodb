@@ -16,9 +16,10 @@ export type AssumeRoleOpts =
       externalId: string;
       region: string;
     }
-  | Record<string, never>;
+  | undefined;
 
 export async function createAssumedDbClient(params: AssumeRoleOpts): Promise<DynamoDBDocumentClient> {
+  if (!params) throw new Error('AssumeRole is undefined');
   const sts = new STSClient({ region: params.region });
   const assumeRole = await sts.send(
     new AssumeRoleCommand({
