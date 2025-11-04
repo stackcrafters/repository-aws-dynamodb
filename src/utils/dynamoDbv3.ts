@@ -33,9 +33,9 @@ export async function createAssumedDbClient(params: AssumeRoleOpts): Promise<Dyn
   const dynamo = new DynamoDBClient({
     region: params.region,
     credentials: {
-      accessKeyId: assumeRole.Credentials.AccessKeyId!,
-      secretAccessKey: assumeRole.Credentials.SecretAccessKey!,
-      sessionToken: assumeRole.Credentials.SessionToken!
+      accessKeyId: assumeRole.Credentials.AccessKeyId as string,
+      secretAccessKey: assumeRole.Credentials.SecretAccessKey as string,
+      sessionToken: assumeRole.Credentials.SessionToken as string
     }
   });
   return DynamoDBDocumentClient.from(dynamo, { marshallOptions: { removeUndefinedValues: true } });

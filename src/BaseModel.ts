@@ -153,11 +153,13 @@ export default class BaseModel<T extends BaseObject> {
     {
       consistentRead = true,
       opts = {},
-      role
+      role,
+      tableName
     }: {
       opts?: GetOpts;
       consistentRead?: boolean;
       role?: AssumeRoleOpts;
+      tableName?: string;
     } = {}
   ): Promise<T | undefined> => {
     const key = this.createKey(keyObj);
@@ -165,7 +167,7 @@ export default class BaseModel<T extends BaseObject> {
       const dbClient = await getDbClient(role);
       const { Item } = await dbClient.send(
         new GetCommand({
-          TableName: this.tableName,
+          TableName: tableName ?? this.tableName,
           Key: key,
           ConsistentRead: consistentRead,
           ...opts
@@ -178,17 +180,17 @@ export default class BaseModel<T extends BaseObject> {
     }
   };
 
-  remove = async (keyObj, { role }: { role?: AssumeRoleOpts } = {}) => {
+  remove = async (keyObj, { role, tableName }: { role?: AssumeRoleOpts; tableName?: string } = {}) => {
     const dbClient = await getDbClient(role);
     await dbClient.send(
       new DeleteCommand({
-        TableName: this.tableName,
+        TableName: tableName ?? this.tableName,
         Key: this.createKey(keyObj)
       })
     );
   };
 
-  removeBatch = async (keyObjs: any[], { role }: { role?: AssumeRoleOpts } = {}) => {
+  removeBatch = async (keyObjs: any[], { role, tableName }: { role?: AssumeRoleOpts; tableName?: string } = {}) => {
     try {
       const dbClient = await getDbClient(role);
       const results = await Promise.all(
@@ -196,7 +198,7 @@ export default class BaseModel<T extends BaseObject> {
           dbClient.send(
             new BatchWriteCommand({
               RequestItems: {
-                [this.tableName]: objs.map((o) => {
+                [tableName ?? this.tableName]: objs.map((o) => {
                   return { DeleteRequest: { Key: this.createKey(o) } };
                 })
               }
@@ -206,8 +208,8 @@ export default class BaseModel<T extends BaseObject> {
       );
       //return unprocessed items
       return results.reduce<any[]>((acc, data) => {
-        if (data?.UnprocessedItems?.[this.tableName]) {
-          return acc.concat(data.UnprocessedItems[this.tableName]);
+        if (data?.UnprocessedItems?.[tableName ?? this.tableName]) {
+          return acc.concat(data.UnprocessedItems[tableName ?? this.tableName]);
         }
         return acc;
       }, []);
@@ -220,7 +222,7 @@ export default class BaseModel<T extends BaseObject> {
   getBatch = async (
     keyObjs: any[],
     consistentRead = true,
-    { opts = {}, role }: { opts?: any; role?: AssumeRoleOpts } = {}
+    { opts = {}, role, tableName }: { opts?: any; role?: AssumeRoleOpts; tableName?: string } = {}
   ): Promise<T[]> => {
     const dbClient = await getDbClient(role);
     const results = await Promise.all(
@@ -228,7 +230,7 @@ export default class BaseModel<T extends BaseObject> {
         dbClient.send(
           new BatchGetCommand({
             RequestItems: {
-              [this.tableName]: {
+              [tableName ?? this.tableName]: {
                 Keys: pairs.map((p) => this.createKey(p)),
                 ConsistentRead: consistentRead,
                 ...opts
@@ -239,8 +241,8 @@ export default class BaseModel<T extends BaseObject> {
       )
     );
     return results.reduce<T[]>((acc, result) => {
-      if (result.Responses?.[this.tableName]) {
-        return acc.concat(<T[]>result.Responses[this.tableName]);
+      if (result.Responses?.[tableName ?? this.tableName]) {
+        return acc.concat(<T[]>result.Responses[tableName ?? this.tableName]);
       }
       return acc;
     }, []);
@@ -253,13 +255,15 @@ export default class BaseModel<T extends BaseObject> {
       opts = { ExpressionAttributeNames: {}, ExpressionAttributeValues: {} },
       rangeOp = '=',
       maxRequests = 7,
-      role
+      role,
+      tableName
     }: {
       opts?: QueryOpts;
       rangeOp?: string;
       pageSize?: number;
       maxRequests?: number;
       role?: AssumeRoleOpts;
+      tableName?: string;
     } = {}
   ): Promise<{ items: T[]; lastEvaluatedKey?: Partial<T> }> => {
     const dbClient = await getDbClient(role);
@@ -276,7 +280,7 @@ export default class BaseModel<T extends BaseObject> {
       paginateQuery(
         { client: dbClient, pageSize: opts?.Limit, startingToken: opts?.ExclusiveStartKey },
         {
-          TableName: this.tableName,
+          TableName: tableName ?? this.tableName,
           IndexName: index,
           KeyConditionExpression: `#hkn = :hkv${
             rangeKeyPresent ? ` AND ${rangeOp === 'begins_with' ? `begins_with(#rkn, :rkv)` : `#rkn ${rangeOp} :rkv`}` : ''
@@ -305,8 +309,17 @@ export default class BaseModel<T extends BaseObject> {
       rangeOp = '=',
       consistentRead = true,
       maxRequests = 7,
-      role
-    }: { opts?: QueryOpts; rangeOp?: string; consistentRead?: boolean; pageSize?: number; maxRequests?: number; role?: AssumeRoleOpts } = {}
+      role,
+      tableName
+    }: {
+      opts?: QueryOpts;
+      rangeOp?: string;
+      consistentRead?: boolean;
+      pageSize?: number;
+      maxRequests?: number;
+      role?: AssumeRoleOpts;
+      tableName?: string;
+    } = {}
   ): Promise<{ items: T[]; lastEvaluatedKey?: Partial<T> }> => {
     const dbClient = await getDbClient(role);
     const hashKey = <string>this.keys.hashKey;
@@ -322,7 +335,7 @@ export default class BaseModel<T extends BaseObject> {
       paginateQuery(
         { client: dbClient, pageSize: opts?.Limit, startingToken: opts?.ExclusiveStartKey },
         {
-          TableName: this.tableName,
+          TableName: tableName ?? this.tableName,
           KeyConditionExpression: `#hkn = :hkv${
             rangeKeyPresent ? ` AND ${rangeOp === 'begins_with' ? `begins_with(#rkn, :rkv)` : `#rkn ${rangeOp} :rkv`}` : ''
           }`,
@@ -344,13 +357,17 @@ export default class BaseModel<T extends BaseObject> {
     );
   };
 
-  all = async ({ role }: { role?: AssumeRoleOpts } = {}): Promise<T[] | undefined> => {
+  all = async ({ role, tableName }: { role?: AssumeRoleOpts; tableName?: string } = {}): Promise<T[] | undefined> => {
     const dbClient = await getDbClient(role);
-    const result = await this.getPaginatedResult(paginateScan({ client: dbClient }, { TableName: this.tableName }));
+    const result = await this.getPaginatedResult(paginateScan({ client: dbClient }, { TableName: tableName ?? this.tableName }));
     return result.items;
   };
 
-  prepareSave = (item: T, userId?, conditionExpression?: string): PutCommandInput => {
+  prepareSave = (
+    item: T,
+    userId?,
+    { conditionExpression, tableName }: { conditionExpression?: string; tableName?: string } = {}
+  ): PutCommandInput => {
     this.validateItemKeys(item);
 
     const versionCondition = getVersionCondition(item);
@@ -365,7 +382,7 @@ export default class BaseModel<T extends BaseObject> {
     }
 
     return {
-      TableName: this.tableName,
+      TableName: tableName ?? this.tableName,
       Item: <T & { [p: string]: any }>item,
       ReturnValues: 'ALL_OLD',
       ConditionExpression: conditionExpression ? `${conditionExpression} AND ${versionCondition}` : versionCondition,
@@ -376,21 +393,21 @@ export default class BaseModel<T extends BaseObject> {
   save = async (
     item: T,
     userId?,
-    { conditionExpression, role }: { conditionExpression?: string; role?: AssumeRoleOpts } = {}
+    { conditionExpression, role, tableName }: { conditionExpression?: string; role?: AssumeRoleOpts; tableName?: string } = {}
   ): Promise<T> => {
     const dbClient = await getDbClient(role);
-    const params = this.prepareSave(item, userId, conditionExpression);
+    const params = this.prepareSave(item, userId, { conditionExpression, tableName });
     return <T>(await dbClient.send(new PutCommand(params))).Attributes;
   };
 
-  saveBatch = async (items: any[], userId?, { role }: { role?: AssumeRoleOpts } = {}) => {
+  saveBatch = async (items: any[], userId?, { role, tableName }: { role?: AssumeRoleOpts; tableName?: string } = {}) => {
     const dbClient = await getDbClient(role);
     return await Promise.all(
       chunkArray(items, 25).map((itemBatch) =>
         dbClient.send(
           new BatchWriteCommand({
             RequestItems: {
-              [this.tableName]: itemBatch.map((item) => {
+              [tableName ?? this.tableName]: itemBatch.map((item) => {
                 this.validateItemKeys(item);
                 if (item.dateUpdated) {
                   item.dateUpdated = this.currentTimestamp();
@@ -411,10 +428,10 @@ export default class BaseModel<T extends BaseObject> {
     );
   };
 
-  prepareUpdate = (keyObj, opts = {}): UpdateCommandInput => {
+  prepareUpdate = (keyObj, { tableName, ...opts }: { tableName?: string } & Record<string, any> = {}): UpdateCommandInput => {
     const key = this.createKey(keyObj);
     return {
-      TableName: this.tableName,
+      TableName: tableName ?? this.tableName,
       Key: key,
       ...opts
     };
@@ -429,7 +446,7 @@ export default class BaseModel<T extends BaseObject> {
   prepareUpdateV2 = (
     item,
     changes = {},
-    { skipVersionCondition = false, opts: overrideOpts = {} }: UpdateOpts = { opts: {} },
+    { skipVersionCondition = false, tableName, opts: overrideOpts = {} }: UpdateOpts & { tableName?: string } = { opts: {} },
     userId?: string
   ): UpdateCommandInput => {
     const opts = {
@@ -460,7 +477,7 @@ export default class BaseModel<T extends BaseObject> {
       values[`:v_${k}`] = v;
     });
     return {
-      TableName: this.tableName,
+      TableName: tableName ?? this.tableName,
       Key: this.createKey(item),
       ExpressionAttributeNames: { ...names, ...opts?.ExpressionAttributeNames },
       ExpressionAttributeValues: { ...values, ...opts?.ExpressionAttributeValues },
@@ -484,7 +501,7 @@ export default class BaseModel<T extends BaseObject> {
   updateV2 = async (
     item,
     changes = {},
-    { role, ...updateOpts }: UpdateOpts & { role?: AssumeRoleOpts } = {},
+    { role, ...updateOpts }: UpdateOpts & { role?: AssumeRoleOpts; tableName?: string } = {},
     userId?: string
   ): Promise<T | undefined> => {
     const dbClient = await getDbClient(role);
