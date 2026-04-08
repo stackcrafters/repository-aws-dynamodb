@@ -164,14 +164,14 @@ describe('save', () => {
   it('applies passing conditionExpression', async () => {
     const obj = { id: 'test-create-5' };
     expect(await Model1.get(obj)).toBeUndefined();
-    await Model1.save(obj, 101, 'attribute_not_exists(id)');
+    await Model1.save(obj, 101, { conditionExpression: 'attribute_not_exists(id)' });
     expect(await Model1.get(obj)).toEqual({ ...obj, version: 1 });
   });
   it('applies failing conditionExpression', async () => {
     const obj = { id: 'test-put-3' };
     expect(await Model1.get(obj)).toBeDefined();
     const throws = async () => {
-      await Model1.save(obj, 101, 'attribute_not_exists(id)');
+      await Model1.save(obj, 101, { conditionExpression: 'attribute_not_exists(id)' });
     };
     await expect(throws()).rejects.toThrow('The conditional request failed');
     expect((await Model1.get(obj)).version).toBeUndefined();

@@ -309,7 +309,7 @@ describe('prepareSave', () => {
     expect(res.ReturnValues).toEqual('ALL_OLD');
   });
   it('sets ConditionExpression to conditionExpression and versionCondition when condition set', () => {
-    const res = instance.prepareSave({ ...testObj, version: 1 }, 101, 'x = 1');
+    const res = instance.prepareSave({ ...testObj, version: 1 }, 101, { conditionExpression: 'x = 1' });
 
     expect(res.ConditionExpression).toEqual('x = 1 AND version = :ver');
   });
@@ -332,7 +332,7 @@ describe('save', () => {
     expect(ddbMock).toHaveReceivedCommandWith(PutCommand, { Item: testObj });
   });
   it('sets conditionExpression when provided', async () => {
-    await instance.save(testObj, 101, 'x = 1');
+    await instance.save(testObj, 101, { conditionExpression: 'x = 1' });
 
     expect(ddbMock).toHaveReceivedCommandWith(PutCommand, { ConditionExpression: 'x = 1 AND attribute_not_exists(version)' });
   });
